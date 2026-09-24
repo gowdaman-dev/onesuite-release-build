@@ -1,6 +1,6 @@
 name: Build OneSuite EXE release assets
 
-on:
+'on':
   repository_dispatch:
     types:
       - onesuite-release-build
