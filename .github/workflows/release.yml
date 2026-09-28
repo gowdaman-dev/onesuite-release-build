@@ -1,4 +1,4 @@
-name: Build OneSuite EXE release assets
+name: Build OneSuite & Chronexa Installer Release Assets
 
 'on':
   repository_dispatch:
@@ -29,13 +29,12 @@ concurrency:
 
 jobs:
   build-release:
-    name: Build and publish EXE ZIPs
+    name: Build and publish EXE & MSI Installer
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
     env:
       EXPECTED_SOURCE_REPOSITORY: Sree-Cognicoders/OneSuite-API
-      # Prisma generate only requires syntactically valid URLs during build.
       DATABASE_URL_MASTER: sqlserver://localhost:1433;database=Chronexa_Master;user=sa;password=Password123;encrypt=true;trustServerCertificate=true
       DATABASE_URL_TIMEPRO: sqlserver://localhost:1433;database=Chronexa_TimePro;user=sa;password=Password123;encrypt=true;trustServerCertificate=true
       DATABASE_URL_VISITPRO: sqlserver://localhost:1433;database=Chronexa_VisitPro;user=sa;password=Password123;encrypt=true;trustServerCertificate=true
@@ -126,38 +125,38 @@ jobs:
           cache: npm
           cache-dependency-path: source/package-lock.json
 
-      - name: Install dependencies
+      - name: Install dependencies and msitools
         if: steps.existing_release.outputs.exists != 'true'
-        working-directory: source
-        run: npm ci
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y msitools zip
+          cd source
+          npm ci
 
-      - name: Build Windows EXE ZIP packages
+      - name: Build Windows EXE Binaries & Native MSI Installer
         if: steps.existing_release.outputs.exists != 'true'
-        working-directory: source
-        run: npm run build:exe
-
-      - name: Verify build output
-        if: steps.existing_release.outputs.exists != 'true'
-        shell: bash
         working-directory: source
         run: |
-          shopt -s nullglob
-          files=(release-zip/*.zip)
-          if (( ${#files[@]} == 0 )); then
-            echo "No release ZIPs found in source/release-zip" >&2
-            exit 1
-          fi
-          printf 'Generated %s release ZIP(s):\n' "${#files[@]}"
-          ls -lh release-zip/*.zip
+          npm run build:installer
 
-      - name: Create GitHub release and upload ZIP assets
+      - name: Package Chronexa Installer Bundle into single ZIP
+        if: steps.existing_release.outputs.exists != 'true'
+        working-directory: source
+        run: |
+          mkdir -p release-zip
+          cd release-installer
+          zip -r ../release-zip/Chronexa-Backend-Installer-win-x64.zip .
+          cd ..
+          ls -lh release-zip/
+
+      - name: Create GitHub release and upload assets
         if: steps.existing_release.outputs.exists != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.payload.outputs.tag }}
-          name: OneSuite EXE build ${{ steps.payload.outputs.short_sha }}
+          name: Chronexa & OneSuite Release ${{ steps.payload.outputs.short_sha }}
           body: |
-            ## OneSuite Windows EXE Release (${{ steps.payload.outputs.short_sha }})
+            ## Chronexa Backend Microservices Release (${{ steps.payload.outputs.short_sha }})
 
             - **Source Repository**: `${{ steps.payload.outputs.source_repository }}`
             - **Commit SHA**: `${{ steps.payload.outputs.source_sha }}`
@@ -166,44 +165,29 @@ jobs:
 
             ---
 
-            ### 📦 Release Packages
-            - **`onesuite-all-services-win-x64.zip`** — Complete bundle containing all microservices, configurations, and service management scripts in one unified package.
-            - **Individual Service ZIPs** — Standalone packages for each microservice (`<service>-win-x64.zip`).
-            - **Management Scripts** — `service.bat` and `manage-services.ps1` attached directly for easy automation.
+            ### 📦 Installer Packages
+            - **`Chronexa-Backend-Installer-win-x64.zip`** — Complete standalone installer package (contains `OneSuite-Setup.exe`, `Chronexa-Backend-Setup.msi`, Control Center, and all 15 microservices).
+            - **`Chronexa-Backend-Setup.msi`** — Native Windows MSI package with custom product suite selection.
+            - **`OneSuite-Setup.exe`** — Standalone setup executable with pre-flight checks, in-place updates, and Windows Service auto-registration.
+            - **`onesuite-all-services-win-x64.zip`** — Raw binary bundle with all microservices.
 
             ---
 
-            ### 🚀 Quick Start & Service Management
-            1. Download and extract **`onesuite-all-services-win-x64.zip`** into your destination folder (e.g., `E:\App\OneSuite\`).
-            2. Configure database, NATS, and Redis settings in the `.env` files.
-            3. Open Command Prompt or PowerShell as Administrator and run:
-
-            ```cmd
-            :: Check service status
-            service.bat status
-
-            :: Start all microservices
-            service.bat start
-
-            :: Manage Product Groups
-            service.bat start core        (Gateway, Auth, User, Master, Audit, Agent, Notify, Sync)
-            service.bat start timepro     (Roster, Attendance, Leave, Policy, Approval, Report)
-            service.bat start mealpro     (Meal Service)
-
-            :: Manage Specific Microservice
-            service.bat start api-gateway
-            service.bat restart auth-service
-
-            :: Windows Service Registration
-            service.bat create            (Registers Windows Services for all apps)
-            service.bat delete            (Unregisters Windows Services)
-            ```
+            ### 🚀 Quick Start & Management
+            1. Download and extract **`Chronexa-Backend-Installer-win-x64.zip`**.
+            2. Run **`OneSuite-Setup.exe`** or double-click **`Chronexa-Backend-Setup.msi`**.
+            3. Manage services via **`tools\control-panel\OneSuiteControlPanel.bat`** or **`service.bat`**:
+               - `service.bat start`
+               - `service.bat start timepro`
+               - `service.bat start mealpro`
+               - `service.bat status`
           generate_release_notes: true
           files: |
             source/release-zip/*.zip
+            source/release-installer/Chronexa-Backend-Setup.msi
+            source/release-installer/OneSuite-Setup.exe
             source/scripts/manage-services.ps1
             source/scripts/service.bat
-            source/scripts/manage-services.bat
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ github.token }}
