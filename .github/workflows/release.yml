@@ -157,16 +157,53 @@ jobs:
           tag_name: ${{ steps.payload.outputs.tag }}
           name: OneSuite EXE build ${{ steps.payload.outputs.short_sha }}
           body: |
-            Automated private EXE build for OneSuite.
+            ## OneSuite Windows EXE Release (${{ steps.payload.outputs.short_sha }})
 
-            Source repository: `${{ steps.payload.outputs.source_repository }}`
-            Source commit: `${{ steps.payload.outputs.source_sha }}`
-            Source ref: `${{ steps.payload.outputs.source_ref }}`
-            Source workflow run: `${{ steps.payload.outputs.source_run_id }}`
+            - **Source Repository**: `${{ steps.payload.outputs.source_repository }}`
+            - **Commit SHA**: `${{ steps.payload.outputs.source_sha }}`
+            - **Branch / Ref**: `${{ steps.payload.outputs.source_ref }}`
+            - **Workflow Run**: `${{ steps.payload.outputs.source_run_id }}`
 
-            This release contains only generated Windows ZIP build outputs from `release-zip/*.zip`; it does not include the source tree.
+            ---
+
+            ### 📦 Release Packages
+            - **`onesuite-all-services-win-x64.zip`** — Complete bundle containing all microservices, configurations, and service management scripts in one unified package.
+            - **Individual Service ZIPs** — Standalone packages for each microservice (`<service>-win-x64.zip`).
+            - **Management Scripts** — `service.bat` and `manage-services.ps1` attached directly for easy automation.
+
+            ---
+
+            ### 🚀 Quick Start & Service Management
+            1. Download and extract **`onesuite-all-services-win-x64.zip`** into your destination folder (e.g., `E:\App\OneSuite\`).
+            2. Configure database, NATS, and Redis settings in the `.env` files.
+            3. Open Command Prompt or PowerShell as Administrator and run:
+
+            ```cmd
+            :: Check service status
+            service.bat status
+
+            :: Start all microservices
+            service.bat start
+
+            :: Manage Product Groups
+            service.bat start core        (Gateway, Auth, User, Master, Audit, Agent, Notify, Sync)
+            service.bat start timepro     (Roster, Attendance, Leave, Policy, Approval, Report)
+            service.bat start mealpro     (Meal Service)
+
+            :: Manage Specific Microservice
+            service.bat start api-gateway
+            service.bat restart auth-service
+
+            :: Windows Service Registration
+            service.bat create            (Registers Windows Services for all apps)
+            service.bat delete            (Unregisters Windows Services)
+            ```
           generate_release_notes: true
-          files: source/release-zip/*.zip
+          files: |
+            source/release-zip/*.zip
+            source/scripts/manage-services.ps1
+            source/scripts/service.bat
+            source/scripts/manage-services.bat
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ github.token }}
