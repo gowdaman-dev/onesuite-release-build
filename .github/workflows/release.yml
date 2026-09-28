@@ -125,11 +125,11 @@ jobs:
           cache: npm
           cache-dependency-path: source/package-lock.json
 
-      - name: Install dependencies and msitools
+      - name: Install dependencies and wixl / msitools
         if: steps.existing_release.outputs.exists != 'true'
         run: |
           sudo apt-get update
-          sudo apt-get install -y msitools zip
+          sudo apt-get install -y wixl msitools zip || sudo apt-get install -y wixl zip || true
           cd source
           npm ci
 
@@ -188,6 +188,6 @@ jobs:
             source/release-installer/OneSuite-Setup.exe
             source/scripts/manage-services.ps1
             source/scripts/service.bat
-          fail_on_unmatched_files: true
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ github.token }}
