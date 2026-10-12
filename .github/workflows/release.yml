@@ -136,8 +136,31 @@ jobs:
       - name: Build Windows EXE Binaries & Native MSI Installer
         if: steps.existing_release.outputs.exists != 'true'
         working-directory: source
+        shell: bash
         run: |
-          npm run build:installer
+          LOG_FILE="$RUNNER_TEMP/build-installer.log"
+
+          if npm run build:installer 2>&1 | tee "$LOG_FILE"; then
+            exit 0
+          fi
+
+          if grep -Eq "node-v22\\.[0-9.]+-win-x64|Not able to build for 'win' here" "$LOG_FILE"; then
+            echo "Detected pkg node22 Windows binary issue; retrying installer build with node20 target fallback."
+            mapfile -t target_files < <(grep -RIl --fixed-strings "node22-win-x64" scripts || true)
+
+            if [[ "${#target_files[@]}" -eq 0 ]]; then
+              echo "Fallback requested but no scripts contain node22-win-x64." >&2
+              exit 1
+            fi
+
+            for file in "${target_files[@]}"; do
+              sed -i 's/node22-win-x64/node20-win-x64/g' "$file"
+            done
+
+            npm run build:installer
+          else
+            exit 1
+          fi
 
       - name: Package Chronexa Installer Bundle into single ZIP
         if: steps.existing_release.outputs.exists != 'true'
